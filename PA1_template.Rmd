@@ -1,0 +1,130 @@
+# Reproducible Research: Peer Assessment 1
+Activity Monitoring Data Set
+
+========================================================
+
+This is an R markdown document detailing the steps of analysis for the 
+activities monitoring data.
+
+## Loading and preprocessing the data
+The original csv file has been loaded into the current directory.
+Preprocessing to change the date field to a Date class is done.
+
+```{r}
+setwd("C:/Users/Joanne/Desktop/DS Course/Practice")
+##Read in csv file after unzipping and adding file to current directory
+activity<-read.csv("Activity/activities.csv")
+
+##check for names (Steps, date, interval) 
+names(activity)
+
+##change date field to date class
+activity$date <-as.Date(activity$date, "%m/%d/%y")
+##verify date class
+class(activity$date)
+
+##view fields in data
+head(activity)
+```
+
+## What is mean total number of steps taken per day?
+Total number of steps per day is shown below along with the median
+```{r}
+##create data set for steps to date using only complete cases, i.e. no NAs
+allcomplete.activity <- aggregate(steps ~ date, activity, sum, na.rm=TRUE)
+
+
+barplot(allcomplete.activity$steps, names.arg = allcomplete.activity$date, col="3", main="Total Steps Per Date", 
+     xlab="Date", ylab="Steps")
+
+mean(allcomplete.activity$steps)
+
+median(allcomplete.activity$steps)
+
+```
+## What is the average daily activity pattern?
+Graph shows mean of each interval activity. Activity builds after interval 500 and has reached peak and declined by interval 1000.  The peak occurs at interval 835 with an average of 206 steps.
+
+```{r}
+interval.aggdata<-aggregate(steps~interval, FUN=mean, data=activity, 
+                            na.rm=TRUE)
+
+plot(interval.aggdata$interval, interval.aggdata$steps, "l", main="Number of Steps by Interval", xlab="Interval", ylab="Steps")
+
+##Find max of data
+interval.aggdata [which.max(interval.aggdata$steps), ]
+```
+
+## Imputing missing values
+There are 2304 missing values in the step field.  Since the assignment required us to change them, the interval average should be closer to the expected, than a day average.  After imputing mean and median are 10766 still very close to the mean and median from the original dataset when excluding NAs. 
+
+```{r}
+##copy activity data in order to fill in NAs and create a new dataset
+imputted_activity<- activity
+
+##Count number of NAs        
+sum(is.na(imputted_activity))
+
+##verifying that all data is present
+nrow(imputted_activity)
+
+##fill in nas using the interval average from interval.aggdata.  
+
+for (i in 1:nrow(imputted_activity)){
+        if (is.na(imputted_activity$steps[i])){
+                interval_val <- imputted_activity$interval[i]
+                row_id <- which(interval.aggdata$interval == interval_val)
+                steps_val <- interval.aggdata$steps[row_id]
+                imputted_activity$steps[i] <- steps_val
+        }
+}
+
+##verify that all nas have a value, i.e. no nas and that number of rows is still the same
+
+sum(is.na(imputted_activity))
+head(imputted_activity)
+nrow(imputted_activity)
+
+##Aggregate sum of steps per day
+nonas.activity <- aggregate(steps ~ date, imputted_activity, sum)
+
+##Using barplot show steps per day
+barplot(nonas.activity$steps, names.arg = nonas.activity$date, col="3", main="Total Steps Per Date", 
+     xlab="Date", ylab="Steps")
+
+##display mean and median
+mean(nonas.activity$steps)
+
+median(nonas.activity$steps)
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+Yes, the graphs clearly show more activity in the weekdays.  Note the density
+of the distribution.
+```{r}
+##change date field to date class
+##nonas.activity$date <-as.Date(nonas.activity$date, "%m/%d/%y")
+##verify date class
+##class(nonas.activity$date)
+
+##add new variable day to show if date is a weekend or weekday
+imputted_activity$day <- ifelse(weekdays(imputted_activity$date) 
+                              %in% c("Satuday", "Sunday"),"weekend", "weekday")
+
+##verify existence of new column day showing weekend or weekday based on date
+head(imputted_activity)
+
+##library package ggplot2 must be installed and is called here
+library(ggplot2)
+
+## To show the steps broken down by weekday and weekend
+ggplot(imputted_activity, aes(x=interval, y=steps)) + 
+    geom_line(color="blue", size=1) + 
+    facet_wrap(~ day, nrow=2, ncol=1) +
+    labs(x="Interval", y="Number of steps") +
+    theme_bw()
+
+```
+
+##Conclusion
+Much more activity is recorded on weekdays.
